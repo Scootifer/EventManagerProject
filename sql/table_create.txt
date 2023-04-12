@@ -1,0 +1,113 @@
+--
+--  Entities
+--
+CREATE TABLE users(
+UserID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+Username VARCHAR(15) NOT NULL,
+Password VARCHAR(64) NOT NULL,
+IsAdmin boolean NOT NULL
+);
+
+
+CREATE TABLE universities(
+    UnivID int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    UnivName VARCHAR(64) NOT NULL UNIQUE
+);
+
+CREATE TABLE rso(
+    RSOID int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    RSOName VARCHAR(64) NOT NULL UNIQUE,
+    UnivID int NOT NULL,
+    FOREIGN KEY(UnivID) REFERENCES universities(UnivID)
+
+);
+
+CREATE TABLE events(
+    EID int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    EventDate DATETIME,
+    HostRSOID int NOT NULL,
+    EventName VARCHAR(32) NOT NULL,
+    EventDesc VARCHAR(64),
+    FOREIGN KEY(HostRSOID) REFERENCES rso(RSOID)
+);
+
+
+--
+--  Relations
+--
+CREATE TABLE universitymembers(
+    UnivID int NOT NULL,
+    UserID int NOT NULL,
+    PRIMARY KEY(UnivID, UserID),
+    FOREIGN KEY(UnivID) REFERENCES universities(UnivID) ON DELETE CASCADE,
+    FOREIGN KEY(UserID) REFERENCES users(UserID) ON DELETE CASCADE
+);
+
+
+-- 
+--  Triggers
+--  ON DELETE CASCADE was not working so this is my work around
+--
+
+-- delete rso when universities
+DELIMITER //
+CREATE TRIGGER delete_rsos
+BEFORE DELETE ON universities
+FOR EACH ROW
+BEGIN
+    DELETE FROM rso WHERE UnivID = OLD.UnivID;
+END//
+DELIMITER ;
+
+-- delete universitymembers when universities
+DELIMITER //
+CREATE TRIGGER delete_umum
+BEFORE DELETE ON universities
+FOR EACH ROW
+BEGIN
+    DELETE FROM universitymembers WHERE UnivID = OLD.UnivID;
+END//
+DELIMITER ;
+
+-- delete universitymembers when users
+DELIMITER //
+CREATE TRIGGER delete_umus
+BEFORE DELETE ON users
+FOR EACH ROW
+BEGIN
+    DELETE FROM universitymembers WHERE UserID = OLD.UserID;
+END//
+DELIMITER ;
+
+-- delete events when rso
+DELIMITER //
+CREATE TRIGGER delete_eventsrso
+BEFORE DELETE ON rso
+FOR EACH ROW
+BEGIN
+    DELETE FROM events WHERE RSOID = OLD.RSOID;
+END//
+DELIMITER ;
+
+-- delete events on universities
+DELIMITER //
+CREATE TRIGGER delete_eventsu
+BEFORE DELETE ON universities
+FOR EACH ROW
+BEGIN
+    DELETE FROM events WHERE HostRSOID = (SELECT rso.RSOID FROM rso WHERE rso.UnivID = OLD.UnivID);
+END//
+DELIMITER ;
+
+
+--
+--  Fill
+--
+
+INSERT INTO users(Username, Password, IsAdmin) VALUES
+('admin','pass',true),
+('user','pass',false);
+
+INSERT INTO universities(UnivName) VALUES ('UCF'),('USF');
+INSERT INTO rso(RSOName, UnivID) VALUES ('UCF1', 1), ('UCF2', 1), ("USF1", 2), ('USF2', 2);
+INSERT INTO events(EventDate, HostRSOID, EventName, EventDesc) VALUES ('2022-04-30 12:00:00', 1, "Scood Birthday", "Lit");
